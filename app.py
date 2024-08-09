@@ -1,4 +1,9 @@
 from flask import Flask, session, make_response, render_template, request, session, redirect, url_for
+from dotenv import load_dotenv
+from prompts.config import prompts
+
+load_dotenv()
+
 from openai import OpenAI
 import os
 import json
@@ -21,11 +26,8 @@ def index():
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-        {"role": "system", "content": """
-            You are the social analyst. 
-            You are working for a consulting business that helps people to make decisions in complex life situations. 
-            Your client description is given below. Extract facts from this information and create a list of personal features 
-            that are relevant for the decision making process of this person. List them as a list ranked by relevance to decision making. 
+        {"role": "system", "content": f"""
+            {prompts['initial_profile']}
             It will be Key/Value pairs, each field can be string,boolean, lists. if there is a nested object, flat it to root level. Lists should 
             not contain any nested json.
             Only return the JSON object (strictly json easy to parse in code).
@@ -64,17 +66,16 @@ def generate_questions():
             text += f'{k}: {v}\n'
         user_profile = dict(request.form)
         
+        user_situation =  request.form['additional_information']
+        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-        {"role": "system", "content": """
-            You are the social analyst. 
-            You are working for a consulting business that helps people to make decisions in complex life situations. 
-            User profile is given below.
-            You are the consultant that is responsible for suggesting the most effective actions that the user needs to perform to resolve the situation. 
-            Generate five brief questions about the person and this situation that will help you to generate better recommendations addressing the information that is 
-            currently missed in the user profile. Sort the questions by their importance for recommendation quality
+        {"role": "system", "content": f"""
+            {prompts['generate_questions']}
+            User described the following situation: {user_situation} 
             Now return all the list of questions in JSON format.
+            """ + """
             FORMAT = JSON
             {
                 "questions": [
