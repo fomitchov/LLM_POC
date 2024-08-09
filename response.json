@@ -1,0 +1,62 @@
+{
+    "name": "Adan",
+    "birthMonth": "June",
+    "birthPlace": "Kohat, Pakistan",
+    "currentLocation": "Pakistan",
+    "school": "Booker High School",
+    "family": {
+        "mother": "Kate",
+        "brother": {
+            "name": "Jake",
+            "ageDifference": 15,
+            "relationshipDescription": "sweet kid, fights like cats and dogs"
+        },
+        "aunt": "Molly"
+    },
+    "lifePhilosophy": "friends and family who you can trust and who trusts you",
+    "emotionalState": {
+        "overall": "happy",
+        "sadDays": true
+    },
+    "supportSystem": {
+        "friends": true,
+        "schoolSupport": true
+    },
+    "relationshipHistory": {
+        "currentRelationship": false,
+        "pastBoyfriend": {
+            "duration": 29,
+            "favoriteActivities": [
+                "movies",
+                "dinner",
+                "beach",
+                "Universal Studios"
+            ]
+        }
+    },
+    "futureProjection": {
+        "year": 2018,
+        "livingStatus": "still living in Sarasota",
+        "maritalStatus": "married",
+        "spouse": {
+            "name": "Paul Smith",
+            "characteristics": {
+                "personality": "sweet",
+                "height": "6 feet",
+                "physique": "built well",
+                "eyeColor": "baby blue",
+                "hairColor": "blond"
+            }
+        },
+        "children": {
+            "name": "Linda Treasa Smith",
+            "age": 3,
+            "description": "a little devil"
+        }
+    },
+    "hobbies": [
+        "hunting",
+        "watching movies",
+        "riding"
+    ]
+}

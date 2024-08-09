@@ -1,0 +1,142 @@
+from flask import Flask, session, make_response, render_template, request, session, redirect, url_for
+from openai import OpenAI
+import os
+import json
+
+
+API_KEY = os.environ['OPEN_AI_API_KEY']
+
+client = OpenAI(api_key=API_KEY)
+
+app = Flask(__name__, template_folder='templates')
+app.secret_key = 'your api key'
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'GET':
+        return render_template('index.html')
+
+    if request.method == 'POST':
+        text = request.form['text']
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+        {"role": "system", "content": """
+            You are the social analyst. 
+            You are working for a consulting business that helps people to make decisions in complex life situations. 
+            Your client description is given below. Extract facts from this information and create a list of personal features 
+            that are relevant for the decision making process of this person. List them as a list ranked by relevance to decision making. 
+            It will be Key/Value pairs, each field can be string,boolean, lists. if there is a nested object, flat it to root level. Lists should 
+            not contain any nested json.
+            Only return the JSON object (strictly json easy to parse in code).
+            keep all the facts and features at root level, avoid unnecessary nesting.
+            
+            FORMAT = JSON
+            """},
+        {"role": "user", "content": text},
+        
+        ]
+    )
+    result = json.loads(response.choices[0].message.content)
+    session['text'] = text
+    session['initial_profile'] = result
+    return redirect(url_for('show_profile'))
+
+
+
+@app.route('/show_profile', methods=['GET', 'POST'])
+def show_profile():
+    text = session.get('text', '')
+    initial_profile = session.get('initial_profile', {})
+    
+    if request.method == 'GET':    
+        return render_template('initial.profile.html', text=text, initial_profile=initial_profile)
+    
+    if request.method == 'POST':
+        pass
+    
+
+@app.route('/generate_questions', methods=['POST'])
+def generate_questions():
+    if request.method == 'POST':
+        text  = ''
+        for k, v in request.form.items():
+            text += f'{k}: {v}\n'
+        user_profile = dict(request.form)
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+        {"role": "system", "content": """
+            You are the social analyst. 
+            You are working for a consulting business that helps people to make decisions in complex life situations. 
+            User profile is given below.
+            You are the consultant that is responsible for suggesting the most effective actions that the user needs to perform to resolve the situation. 
+            Generate five brief questions about the person and this situation that will help you to generate better recommendations addressing the information that is 
+            currently missed in the user profile. Sort the questions by their importance for recommendation quality
+            Now return all the list of questions in JSON format.
+            FORMAT = JSON
+            {
+                "questions": [
+                    "question1 ...",
+                    "questions2 ..",
+                    "questions3 ..",
+                    "questions4 ..",
+                    "questions5 .."
+                ]
+            }
+            The response content is strictly json only, don't append or present anything.
+            """},
+        {"role": "user", "content": text},
+        
+        ]
+    )
+    session.pop('text', None)
+    session.pop('initial_profile', None)
+    
+    session['updated_profile'] = user_profile
+    
+    result = json.loads(response.choices[0].message.content)
+    questions = list(result['questions'])
+    return render_template('questions.html', questions=questions, user_profile=user_profile)
+
+
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if request.method == 'POST':
+        text  = ''
+        for k, v in request.form.items():
+            text += f'{k}: {v}\n'
+        if not session.get('updated_profile'):
+            return make_response('user profile missing', 400)
+        
+        user_profile = session['updated_profile']
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+        {"role": "system", "content": f"""
+            You are the social analyst. 
+            You are working for a consulting business that helps people to make decisions in complex life situations. 
+            User profile: {user_profile}
+            Questions answered by the user are given = {text}
+            Now based on these answers, find the missing fields in user profile based on the question answered by the user.
+            It will be Key/Value pairs, each field can be string,boolean, lists. if there is a nested object, flat it to root level. Lists should 
+            not contain any nested json.
+            Only return the JSON object (strictly json easy to parse in code).
+            
+            FORMAT = JSON
+            """},
+        {"role": "user", "content": text},
+        
+        ]
+    )
+    print(response.choices[0].message.content)
+    print(user_profile)
+    result = json.loads(response.choices[0].message.content)
+    result = dict(result)
+    result.update(dict(user_profile))
+    print(result)
+    return result
+if __name__ == '__main__':
+    app.run(debug=True)
