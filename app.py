@@ -1,5 +1,8 @@
 from flask import Flask, session, make_response, render_template, request, session, redirect, url_for
 from dotenv import load_dotenv
+from pymongo import MongoClient
+from bson import ObjectId
+
 from prompts.config import prompts
 
 load_dotenv()
@@ -8,13 +11,19 @@ from openai import OpenAI
 import os
 import json
 
-
 API_KEY = os.environ['OPEN_AI_API_KEY']
 
-client = OpenAI(api_key=API_KEY)
+DB_URI = os.environ['DB_URI']
 
 app = Flask(__name__, template_folder='templates')
 app.secret_key = 'your api key'
+
+client = OpenAI(api_key=API_KEY)
+mongo_client = MongoClient(DB_URI, connect=False)
+
+db = mongo_client.get_database('situations_db')
+user_situations_collection = db.get_collection('situations')
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -40,8 +49,14 @@ def index():
         ]
     )
     result = json.loads(response.choices[0].message.content)
+    insert_doc = result.copy()
+
+    user_situations_collection.insert_one(insert_doc)
+    
     session['text'] = text
     session['initial_profile'] = result
+    session['inserted_id'] = str(insert_doc['_id'])
+    
     return redirect(url_for('show_profile'))
 
 
@@ -112,6 +127,7 @@ def update_profile():
             return make_response('user profile missing', 400)
         
         user_profile = session['updated_profile']
+        inserted_id = session.get('inserted_id')
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -138,6 +154,14 @@ def update_profile():
     result = dict(result)
     result.update(dict(user_profile))
     print(result)
+    
+    user_situations_collection.find_one_and_update({ '_id': ObjectId(inserted_id) }, {'$set': result})
+    
+    session.pop('text', None)
+    session.pop('inserted_id', None)
+    session.pop('initial_profile', None)
+    session.pop('updated_profile', None)    
+    
     return result
 if __name__ == '__main__':
     app.run(debug=True)
