@@ -16,6 +16,10 @@ API_KEY = os.environ['OPEN_AI_API_KEY']
 DB_URI = os.environ['DB_URI']
 
 app = Flask(__name__, template_folder='templates')
+
+env_config = os.getenv("PROD_APP_SETTINGS", "config.DevelopmentConfig")
+app.config.from_object(env_config)
+
 app.secret_key = 'your api key'
 
 client = OpenAI(api_key=API_KEY)
@@ -163,5 +167,3 @@ def update_profile():
     session.pop('updated_profile', None)    
     
     return result
-if __name__ == '__main__':
-    app.run(debug=True)
