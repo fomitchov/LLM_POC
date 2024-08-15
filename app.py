@@ -25,8 +25,8 @@ app.secret_key = 'your api key'
 client = OpenAI(api_key=API_KEY)
 mongo_client = MongoClient(DB_URI, connect=False)
 
-db = mongo_client.get_database('situations_db')
-user_situations_collection = db.get_collection('situations')
+db = mongo_client.get_database('situations')
+user_situations_collection = db.get_collection('situation')
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -131,6 +131,9 @@ def update_profile():
             return make_response('user profile missing', 400)
         
         user_profile = session['updated_profile']
+        user_profile['user_situation'] = user_profile['additional_information']
+        user_profile.pop('additional_information', '')
+        
         inserted_id = session.get('inserted_id')
         
         response = client.chat.completions.create(
@@ -152,12 +155,9 @@ def update_profile():
         
         ]
     )
-    print(response.choices[0].message.content)
-    print(user_profile)
     result = json.loads(response.choices[0].message.content)
     result = dict(result)
     result.update(dict(user_profile))
-    print(result)
     
     user_situations_collection.find_one_and_update({ '_id': ObjectId(inserted_id) }, {'$set': result})
     
@@ -166,4 +166,19 @@ def update_profile():
     session.pop('initial_profile', None)
     session.pop('updated_profile', None)    
     
-    return result
+    
+    response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+        {"role": "system", "content": f"""
+            You are the social analyst. 
+            You are working for a consulting business that helps people to make decisions in complex life situations. 
+            User profile: {result}
+            Now based on this profile, provide a guidance for a user’s situation and suggest solutions for a given user’s 
+            situation : {user_profile['user_situation']}
+            """},
+        {"role": "user", "content": text},
+        
+        ]
+    )
+    return render_template('suggestions.html', user_profile=dict(result), suggestions=[response.choices[0].message.content])
