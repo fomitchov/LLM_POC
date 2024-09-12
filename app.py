@@ -174,8 +174,9 @@ def update_profile():
             You are the social analyst. 
             You are working for a consulting business that helps people to make decisions in complex life situations. 
             User profile: {result}
-            Now based on this profile, provide a guidance for a user’s situation and suggest solutions for a given user’s 
-            situation : {user_profile['user_situation']}
+            Now based on this profile, provide a list of strategies to resolve a user’s situation. 
+            First, include the strategies that likely will work. Second, include the strategies that typically lead to failures.
+            Suggest products or services that may help to resolve a given user’s situation : {user_profile['user_situation']}
             """},
         {"role": "user", "content": text},
         
