@@ -175,7 +175,8 @@ def update_profile():
             You are working for a consulting business that helps people to make decisions in complex life situations. 
             User profile: {result}
             Now based on this profile, provide a list of strategies to resolve a user’s situation. 
-            First, include four strategies that likely will work. Second, include four strategies that typically lead to failures.
+            First, include four strategies that likely will work. Second, include four strategies that typically lead to failures. 
+            For each strategy propose three clear actions to take.
             Suggest maximum five products or services that may help to resolve a given user’s situation. 
             Use simple language and brief sentences. Generate output in plain text, not markup. Use empty line as a separator between items. : {user_profile['user_situation']}
             """},
