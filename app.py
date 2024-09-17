@@ -178,7 +178,7 @@ def update_profile():
             First, include four strategies that likely will work. Second, include four strategies that typically lead to failures. 
             For each strategy propose three clear actions to take.
             Suggest maximum five products or services that may help to resolve a given user’s situation. 
-            Use simple language and brief sentences. Generate output in plain text, not markup. Use empty line as a separator between items. : {user_profile['user_situation']}
+            Use simple language and brief sentences. Generate output in plain text, not markup. Use empty line as a separator between items. Provide answer in the language used by a user. : {user_profile['user_situation']}
             """},
         {"role": "user", "content": text},
         
