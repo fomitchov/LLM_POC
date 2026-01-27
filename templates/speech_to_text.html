@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech to Text - Situations.Me</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <style>
+        .recording {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+        #transcript {
+            min-height: 150px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            white-space: pre-wrap;
+        }
+        #summary {
+            min-height: 100px;
+            background-color: #e8f4f8;
+            border: 1px solid #b8daff;
+            border-radius: 0.25rem;
+            padding: 1rem;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-idle { background-color: #6c757d; }
+        .status-listening { background-color: #28a745; }
+        .status-processing { background-color: #ffc107; }
+        .interim-text { color: #6c757d; font-style: italic; }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row m-3 p-2 justify-content-center">
+            <div class="col-8">
+                <h1>Situations.Me - Speech to Text</h1>
+                <p class="text-muted">Speak to describe your situation, then get an AI-generated summary.</p>
+                <hr>
+
+                <!-- Browser Support Warning -->
+                <div id="browserWarning" class="alert alert-warning d-none" role="alert">
+                    Your browser does not support the Web Speech API. Please use Chrome, Edge, or Safari for speech recognition.
+                </div>
+
+                <!-- Status Indicator -->
+                <div class="mb-3">
+                    <span class="status-indicator status-idle" id="statusIndicator"></span>
+                    <span id="statusText">Ready to listen</span>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="mb-3">
+                    <button id="startBtn" class="btn btn-success mr-2" onclick="startListening()">
+                        Start Listening
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger mr-2" onclick="stopListening()" disabled>
+                        Stop Listening
+                    </button>
+                    <button id="clearBtn" class="btn btn-secondary mr-2" onclick="clearTranscript()">
+                        Clear
+                    </button>
+                    <button id="summarizeBtn" class="btn btn-primary" onclick="summarizeTranscript()" disabled>
+                        Summarize with AI
+                    </button>
+                </div>
+
+                <!-- Language Selection -->
+                <div class="mb-3">
+                    <label for="languageSelect" class="form-label">Language:</label>
+                    <select id="languageSelect" class="form-control" style="width: auto; display: inline-block;">
+                        <option value="en-US">English (US)</option>
+                        <option value="en-GB">English (UK)</option>
+                        <option value="es-ES">Spanish</option>
+                        <option value="fr-FR">French</option>
+                        <option value="de-DE">German</option>
+                        <option value="it-IT">Italian</option>
+                        <option value="pt-BR">Portuguese (Brazil)</option>
+                        <option value="ru-RU">Russian</option>
+                        <option value="zh-CN">Chinese (Simplified)</option>
+                        <option value="ja-JP">Japanese</option>
+                    </select>
+                </div>
+
+                <!-- Transcript Area -->
+                <div class="mb-3">
+                    <label><strong>Transcript:</strong></label>
+                    <div id="transcript">
+                        <span id="finalTranscript"></span>
+                        <span id="interimTranscript" class="interim-text"></span>
+                    </div>
+                </div>
+
+                <!-- Summary Area -->
+                <div class="mb-3" id="summaryContainer" style="display: none;">
+                    <label><strong>AI Summary:</strong></label>
+                    <div id="summary"></div>
+                </div>
+
+                <!-- Use Summary Button -->
+                <div id="useSummaryContainer" style="display: none;">
+                    <form method="POST" action="{{url_for('index')}}">
+                        <input type="hidden" name="text" id="summaryInput">
+                        <button type="submit" class="btn btn-success">
+                            Use This Summary to Continue
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div id="loadingSpinner" class="text-center my-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                    <p class="mt-2">Generating summary...</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+
+    <script>
+        let recognition = null;
+        let finalTranscriptText = '';
+        let isListening = false;
+
+        // Check for browser support
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            document.getElementById('browserWarning').classList.remove('d-none');
+            document.getElementById('startBtn').disabled = true;
+        } else {
+            // Initialize speech recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = document.getElementById('languageSelect').value;
+
+            recognition.onstart = function() {
+                isListening = true;
+                updateUI('listening');
+            };
+
+            recognition.onend = function() {
+                if (isListening) {
+                    // Restart if we're still supposed to be listening
+                    recognition.start();
+                } else {
+                    updateUI('idle');
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event.error);
+                if (event.error === 'no-speech') {
+                    // Continue listening
+                    return;
+                }
+                isListening = false;
+                updateUI('idle');
+                alert('Speech recognition error: ' + event.error);
+            };
+
+            recognition.onresult = function(event) {
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscriptText += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                document.getElementById('finalTranscript').textContent = finalTranscriptText;
+                document.getElementById('interimTranscript').textContent = interimTranscript;
+
+                // Enable summarize button if we have text
+                document.getElementById('summarizeBtn').disabled = finalTranscriptText.trim() === '';
+            };
+
+            // Update language when changed
+            document.getElementById('languageSelect').addEventListener('change', function() {
+                recognition.lang = this.value;
+                if (isListening) {
+                    recognition.stop();
+                    setTimeout(() => recognition.start(), 100);
+                }
+            });
+        }
+
+        function startListening() {
+            if (recognition) {
+                isListening = true;
+                recognition.lang = document.getElementById('languageSelect').value;
+                recognition.start();
+            }
+        }
+
+        function stopListening() {
+            if (recognition) {
+                isListening = false;
+                recognition.stop();
+            }
+        }
+
+        function clearTranscript() {
+            finalTranscriptText = '';
+            document.getElementById('finalTranscript').textContent = '';
+            document.getElementById('interimTranscript').textContent = '';
+            document.getElementById('summaryContainer').style.display = 'none';
+            document.getElementById('useSummaryContainer').style.display = 'none';
+            document.getElementById('summary').textContent = '';
+            document.getElementById('summarizeBtn').disabled = true;
+        }
+
+        function updateUI(status) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            indicator.className = 'status-indicator';
+
+            switch(status) {
+                case 'listening':
+                    indicator.classList.add('status-listening');
+                    statusText.textContent = 'Listening...';
+                    startBtn.disabled = true;
+                    startBtn.classList.remove('recording');
+                    stopBtn.disabled = false;
+                    stopBtn.classList.add('recording');
+                    break;
+                case 'processing':
+                    indicator.classList.add('status-processing');
+                    statusText.textContent = 'Processing...';
+                    startBtn.disabled = true;
+                    stopBtn.disabled = true;
+                    break;
+                case 'idle':
+                default:
+                    indicator.classList.add('status-idle');
+                    statusText.textContent = 'Ready to listen';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    stopBtn.classList.remove('recording');
+                    break;
+            }
+        }
+
+        async function summarizeTranscript() {
+            const transcript = finalTranscriptText.trim();
+            if (!transcript) {
+                alert('No transcript to summarize. Please speak first.');
+                return;
+            }
+
+            // Stop listening if active
+            if (isListening) {
+                stopListening();
+            }
+
+            // Show loading state
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('summarizeBtn').disabled = true;
+            updateUI('processing');
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ transcript: transcript }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to get summary');
+                }
+
+                const data = await response.json();
+
+                // Display summary
+                document.getElementById('summary').textContent = data.summary;
+                document.getElementById('summaryContainer').style.display = 'block';
+                document.getElementById('summaryInput').value = data.summary;
+                document.getElementById('useSummaryContainer').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate summary. Please try again.');
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('summarizeBtn').disabled = false;
+                updateUI('idle');
+            }
+        }
+    </script>
+</body>
+
+</html>

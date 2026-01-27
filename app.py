@@ -1,4 +1,4 @@
-from flask import Flask, session, make_response, render_template, request, session, redirect, url_for
+from flask import Flask, session, make_response, render_template, request, session, redirect, url_for, jsonify
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from bson import ObjectId
@@ -185,3 +185,41 @@ def update_profile():
         ]
     )
     return render_template('suggestions.html', user_profile=dict(result), suggestions=[response.choices[0].message.content])
+
+
+@app.route('/speech', methods=['GET'])
+def speech_to_text():
+    """Render the speech-to-text page for voice input."""
+    return render_template('speech_to_text.html')
+
+
+@app.route('/api/summarize', methods=['POST'])
+def summarize_transcript():
+    """
+    API endpoint to summarize a speech transcript using LLM.
+    Expects JSON body with 'transcript' field.
+    Returns JSON with 'summary' field.
+    """
+    if not request.is_json:
+        return jsonify({'error': 'Request must be JSON'}), 400
+
+    data = request.get_json()
+    transcript = data.get('transcript', '').strip()
+
+    if not transcript:
+        return jsonify({'error': 'No transcript provided'}), 400
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": prompts['summarize_transcript']},
+                {"role": "user", "content": transcript},
+            ]
+        )
+
+        summary = response.choices[0].message.content
+        return jsonify({'summary': summary, 'original_length': len(transcript), 'summary_length': len(summary)})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
